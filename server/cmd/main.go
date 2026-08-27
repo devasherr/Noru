@@ -3,15 +3,11 @@ package main
 import (
 	"log"
 
+	httpserver "github.com/devasherr/Noru/internal/http_server"
 	"github.com/gofiber/fiber/v3"
 )
 
 func main() {
-	app := fiber.New()
-
-	app.Get("/", func(c fiber.Ctx) error {
-		return c.SendString("Hello, World")
-	})
-
-	log.Fatal(app.Listen(":7777"))
+	server := httpserver.NewServer(fiber.New())
+	log.Fatal(server.Run())
 }
