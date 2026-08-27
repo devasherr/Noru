@@ -138,3 +138,52 @@ SELECT
     NOT EXISTS (SELECT 1 FROM existing) AS created
 FROM assigned a
 JOIN shifts s ON s.id = a.shift_id;
+
+-- name: RecordEmployeeAttendance :one
+WITH shift AS (
+    SELECT employee_shifts.id
+    FROM employee_shifts
+    WHERE employee_shifts.employee_id = sqlc.arg(employee_id)
+      AND employee_shifts.work_date = sqlc.arg(work_date)
+),
+updated AS (
+    UPDATE attendance
+    SET check_in  = sqlc.narg(check_in),
+        check_out = sqlc.narg(check_out),
+        status    = sqlc.arg(status)
+    WHERE attendance.employee_shift_id = (SELECT shift.id FROM shift)
+    RETURNING *
+),
+inserted AS (
+    INSERT INTO attendance (employee_shift_id, check_in, check_out, status)
+    SELECT shift.id, sqlc.narg(check_in), sqlc.narg(check_out), sqlc.arg(status)
+    FROM shift
+    WHERE NOT EXISTS (SELECT 1 FROM updated)
+    RETURNING *
+),
+recorded AS (
+    SELECT id, employee_shift_id, check_in, check_out, status, created_at, FALSE AS created
+    FROM updated
+    UNION ALL
+    SELECT id, employee_shift_id, check_in, check_out, status, created_at, TRUE AS created
+    FROM inserted
+)
+SELECT
+    r.id,
+    r.employee_shift_id,
+    es.employee_id,
+    es.work_date,
+    s.name AS shift_name,
+    r.check_in,
+    r.check_out,
+    r.status,
+    r.created_at,
+    r.created
+FROM recorded r
+JOIN employee_shifts es ON es.id = r.employee_shift_id
+JOIN shifts s ON s.id = es.shift_id;
+
+-- name: EmployeeExists :one
+SELECT EXISTS (
+    SELECT 1 FROM employees WHERE employees.id = sqlc.arg(id)
+) AS employee_exists;

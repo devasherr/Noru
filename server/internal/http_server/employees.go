@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ const (
 	defaultLimit = 50
 	maxLimit     = 200
 )
+
+var attendanceStatuses = []string{"present", "absent", "late", "on_leave"}
 
 type employeePayload struct {
 	FirstName    *string `json:"first_name"`
@@ -42,6 +45,13 @@ type assignRolePayload struct {
 type assignShiftPayload struct {
 	ShiftID  *int32  `json:"shift_id"`
 	WorkDate *string `json:"work_date"`
+}
+
+type attendancePayload struct {
+	WorkDate *string `json:"work_date"`
+	Status   *string `json:"status"`
+	CheckIn  *string `json:"check_in"`
+	CheckOut *string `json:"check_out"`
 }
 
 func (s *Server) listEmployees(c fiber.Ctx) error {
@@ -239,6 +249,77 @@ func (s *Server) assignEmployeeShift(c fiber.Ctx) error {
 	return c.JSON(assignment)
 }
 
+func (s *Server) recordEmployeeAttendance(c fiber.Ctx) error {
+	id, err := employeeID(c)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	var body attendancePayload
+	if err := c.Bind().JSON(&body); err != nil {
+		return badRequest(c, "invalid json body: "+err.Error())
+	}
+
+	workDate, err := parseDate("work_date", body.WorkDate)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+	if !workDate.Valid {
+		return badRequest(c, "work_date is required and must be a YYYY-MM-DD date")
+	}
+
+	status := trim(body.Status)
+	if !slices.Contains(attendanceStatuses, status) {
+		return badRequest(c, "status is required and must be one of "+strings.Join(attendanceStatuses, ", "))
+	}
+
+	checkIn, err := parseTimestamp("check_in", body.CheckIn)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	checkOut, err := parseTimestamp("check_out", body.CheckOut)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	if checkIn.Valid && checkOut.Valid && !checkOut.Time.After(checkIn.Time) {
+		return badRequest(c, "check_out must be after check_in")
+	}
+	if checkOut.Valid && !checkIn.Valid {
+		return badRequest(c, "check_out requires check_in")
+	}
+
+	record, err := s.queries.RecordEmployeeAttendance(c.Context(), db.RecordEmployeeAttendanceParams{
+		EmployeeID: id,
+		WorkDate:   workDate,
+		Status:     status,
+		CheckIn:    checkIn,
+		CheckOut:   checkOut,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			exists, existsErr := s.queries.EmployeeExists(c.Context(), id)
+			if existsErr != nil {
+				return dbError(c, existsErr)
+			}
+			if !exists {
+				return errorJSON(c, fiber.StatusNotFound, "employee not found")
+			}
+
+			return errorJSON(c, fiber.StatusUnprocessableEntity, "employee has no shift assigned on that date")
+		}
+
+		return dbError(c, err)
+	}
+
+	if record.Created {
+		return c.Status(fiber.StatusCreated).JSON(record)
+	}
+
+	return c.JSON(record)
+}
+
 func (s *Server) deleteEmployee(c fiber.Ctx) error {
 	id, err := employeeID(c)
 	if err != nil {
@@ -310,6 +391,20 @@ func parseDate(field string, v *string) (pgtype.Date, error) {
 	}
 
 	return pgtype.Date{Time: t, Valid: true}, nil
+}
+
+func parseTimestamp(field string, v *string) (pgtype.Timestamptz, error) {
+	s := trim(v)
+	if s == "" {
+		return pgtype.Timestamptz{}, nil
+	}
+
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return pgtype.Timestamptz{}, fmt.Errorf("%s must be an RFC3339 timestamp, e.g. 2026-08-27T14:05:00+03:00", field)
+	}
+
+	return pgtype.Timestamptz{Time: t, Valid: true}, nil
 }
 
 func badRequest(c fiber.Ctx, message string) error {

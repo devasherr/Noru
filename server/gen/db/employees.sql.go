@@ -287,6 +287,19 @@ func (q *Queries) DeleteEmployee(ctx context.Context, id int32) (int64, error) {
 	return result.RowsAffected(), nil
 }
 
+const employeeExists = `-- name: EmployeeExists :one
+SELECT EXISTS (
+    SELECT 1 FROM employees WHERE employees.id = $1
+) AS employee_exists
+`
+
+func (q *Queries) EmployeeExists(ctx context.Context, id int32) (bool, error) {
+	row := q.db.QueryRow(ctx, employeeExists, id)
+	var employee_exists bool
+	err := row.Scan(&employee_exists)
+	return employee_exists, err
+}
+
 const listEmployees = `-- name: ListEmployees :many
 SELECT
     e.id,
@@ -362,6 +375,96 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordEmployeeAttendance = `-- name: RecordEmployeeAttendance :one
+WITH shift AS (
+    SELECT employee_shifts.id
+    FROM employee_shifts
+    WHERE employee_shifts.employee_id = $1
+      AND employee_shifts.work_date = $2
+),
+updated AS (
+    UPDATE attendance
+    SET check_in  = $3,
+        check_out = $4,
+        status    = $5
+    WHERE attendance.employee_shift_id = (SELECT shift.id FROM shift)
+    RETURNING id, employee_shift_id, check_in, check_out, status, created_at
+),
+inserted AS (
+    INSERT INTO attendance (employee_shift_id, check_in, check_out, status)
+    SELECT shift.id, $3, $4, $5
+    FROM shift
+    WHERE NOT EXISTS (SELECT 1 FROM updated)
+    RETURNING id, employee_shift_id, check_in, check_out, status, created_at
+),
+recorded AS (
+    SELECT id, employee_shift_id, check_in, check_out, status, created_at, FALSE AS created
+    FROM updated
+    UNION ALL
+    SELECT id, employee_shift_id, check_in, check_out, status, created_at, TRUE AS created
+    FROM inserted
+)
+SELECT
+    r.id,
+    r.employee_shift_id,
+    es.employee_id,
+    es.work_date,
+    s.name AS shift_name,
+    r.check_in,
+    r.check_out,
+    r.status,
+    r.created_at,
+    r.created
+FROM recorded r
+JOIN employee_shifts es ON es.id = r.employee_shift_id
+JOIN shifts s ON s.id = es.shift_id
+`
+
+type RecordEmployeeAttendanceParams struct {
+	EmployeeID int32              `json:"employee_id"`
+	WorkDate   pgtype.Date        `json:"work_date"`
+	CheckIn    pgtype.Timestamptz `json:"check_in"`
+	CheckOut   pgtype.Timestamptz `json:"check_out"`
+	Status     string             `json:"status"`
+}
+
+type RecordEmployeeAttendanceRow struct {
+	ID              int32              `json:"id"`
+	EmployeeShiftID int32              `json:"employee_shift_id"`
+	EmployeeID      int32              `json:"employee_id"`
+	WorkDate        pgtype.Date        `json:"work_date"`
+	ShiftName       string             `json:"shift_name"`
+	CheckIn         pgtype.Timestamptz `json:"check_in"`
+	CheckOut        pgtype.Timestamptz `json:"check_out"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Created         bool               `json:"created"`
+}
+
+func (q *Queries) RecordEmployeeAttendance(ctx context.Context, arg RecordEmployeeAttendanceParams) (RecordEmployeeAttendanceRow, error) {
+	row := q.db.QueryRow(ctx, recordEmployeeAttendance,
+		arg.EmployeeID,
+		arg.WorkDate,
+		arg.CheckIn,
+		arg.CheckOut,
+		arg.Status,
+	)
+	var i RecordEmployeeAttendanceRow
+	err := row.Scan(
+		&i.ID,
+		&i.EmployeeShiftID,
+		&i.EmployeeID,
+		&i.WorkDate,
+		&i.ShiftName,
+		&i.CheckIn,
+		&i.CheckOut,
+		&i.Status,
+		&i.CreatedAt,
+		&i.Created,
+	)
+	return i, err
 }
 
 const updateEmployee = `-- name: UpdateEmployee :one
