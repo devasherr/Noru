@@ -11,6 +11,81 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createEmployee = `-- name: CreateEmployee :one
+INSERT INTO employees (
+    first_name,
+    last_name,
+    email,
+    phone,
+    hire_date,
+    is_active,
+    department_id,
+    role_id
+) VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    COALESCE($5::date, CURRENT_DATE),
+    COALESCE($6::boolean, TRUE),
+    $7,
+    $8
+)
+RETURNING id, first_name, last_name, email, phone, hire_date, is_active, department_id, role_id, created_at, updated_at
+`
+
+type CreateEmployeeParams struct {
+	FirstName    string      `json:"first_name"`
+	LastName     string      `json:"last_name"`
+	Email        pgtype.Text `json:"email"`
+	Phone        pgtype.Text `json:"phone"`
+	HireDate     pgtype.Date `json:"hire_date"`
+	IsActive     pgtype.Bool `json:"is_active"`
+	DepartmentID pgtype.Int4 `json:"department_id"`
+	RoleID       pgtype.Int4 `json:"role_id"`
+}
+
+func (q *Queries) CreateEmployee(ctx context.Context, arg CreateEmployeeParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, createEmployee,
+		arg.FirstName,
+		arg.LastName,
+		arg.Email,
+		arg.Phone,
+		arg.HireDate,
+		arg.IsActive,
+		arg.DepartmentID,
+		arg.RoleID,
+	)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Phone,
+		&i.HireDate,
+		&i.IsActive,
+		&i.DepartmentID,
+		&i.RoleID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteEmployee = `-- name: DeleteEmployee :execrows
+DELETE FROM employees
+WHERE id = $1
+`
+
+func (q *Queries) DeleteEmployee(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteEmployee, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listEmployees = `-- name: ListEmployees :many
 SELECT
     e.id,
@@ -34,24 +109,24 @@ LIMIT $1 OFFSET $2
 `
 
 type ListEmployeesParams struct {
-	Limit  int32
-	Offset int32
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
 }
 
 type ListEmployeesRow struct {
-	ID             int32
-	FirstName      string
-	LastName       string
-	Email          pgtype.Text
-	Phone          pgtype.Text
-	HireDate       pgtype.Date
-	IsActive       bool
-	DepartmentID   pgtype.Int4
-	DepartmentName pgtype.Text
-	RoleID         pgtype.Int4
-	RoleTitle      pgtype.Text
-	CreatedAt      pgtype.Timestamptz
-	UpdatedAt      pgtype.Timestamptz
+	ID             int32              `json:"id"`
+	FirstName      string             `json:"first_name"`
+	LastName       string             `json:"last_name"`
+	Email          pgtype.Text        `json:"email"`
+	Phone          pgtype.Text        `json:"phone"`
+	HireDate       pgtype.Date        `json:"hire_date"`
+	IsActive       bool               `json:"is_active"`
+	DepartmentID   pgtype.Int4        `json:"department_id"`
+	DepartmentName pgtype.Text        `json:"department_name"`
+	RoleID         pgtype.Int4        `json:"role_id"`
+	RoleTitle      pgtype.Text        `json:"role_title"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([]ListEmployeesRow, error) {
@@ -86,4 +161,61 @@ func (q *Queries) ListEmployees(ctx context.Context, arg ListEmployeesParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateEmployee = `-- name: UpdateEmployee :one
+UPDATE employees
+SET
+    first_name    = COALESCE($1::varchar, first_name),
+    last_name     = COALESCE($2::varchar, last_name),
+    email         = COALESCE($3::varchar, email),
+    phone         = COALESCE($4::varchar, phone),
+    hire_date     = COALESCE($5::date, hire_date),
+    is_active     = COALESCE($6::boolean, is_active),
+    department_id = COALESCE($7::integer, department_id),
+    role_id       = COALESCE($8::integer, role_id),
+    updated_at    = now()
+WHERE id = $9
+RETURNING id, first_name, last_name, email, phone, hire_date, is_active, department_id, role_id, created_at, updated_at
+`
+
+type UpdateEmployeeParams struct {
+	FirstName    pgtype.Text `json:"first_name"`
+	LastName     pgtype.Text `json:"last_name"`
+	Email        pgtype.Text `json:"email"`
+	Phone        pgtype.Text `json:"phone"`
+	HireDate     pgtype.Date `json:"hire_date"`
+	IsActive     pgtype.Bool `json:"is_active"`
+	DepartmentID pgtype.Int4 `json:"department_id"`
+	RoleID       pgtype.Int4 `json:"role_id"`
+	ID           int32       `json:"id"`
+}
+
+func (q *Queries) UpdateEmployee(ctx context.Context, arg UpdateEmployeeParams) (Employee, error) {
+	row := q.db.QueryRow(ctx, updateEmployee,
+		arg.FirstName,
+		arg.LastName,
+		arg.Email,
+		arg.Phone,
+		arg.HireDate,
+		arg.IsActive,
+		arg.DepartmentID,
+		arg.RoleID,
+		arg.ID,
+	)
+	var i Employee
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Phone,
+		&i.HireDate,
+		&i.IsActive,
+		&i.DepartmentID,
+		&i.RoleID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

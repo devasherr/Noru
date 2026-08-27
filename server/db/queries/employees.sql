@@ -18,3 +18,44 @@ LEFT JOIN departments d ON d.id = e.department_id
 LEFT JOIN roles r ON r.id = e.role_id
 ORDER BY e.last_name, e.first_name
 LIMIT $1 OFFSET $2;
+
+-- name: CreateEmployee :one
+INSERT INTO employees (
+    first_name,
+    last_name,
+    email,
+    phone,
+    hire_date,
+    is_active,
+    department_id,
+    role_id
+) VALUES (
+    sqlc.arg(first_name),
+    sqlc.arg(last_name),
+    sqlc.narg(email),
+    sqlc.narg(phone),
+    COALESCE(sqlc.narg(hire_date)::date, CURRENT_DATE),
+    COALESCE(sqlc.narg(is_active)::boolean, TRUE),
+    sqlc.narg(department_id),
+    sqlc.narg(role_id)
+)
+RETURNING *;
+
+-- name: UpdateEmployee :one
+UPDATE employees
+SET
+    first_name    = COALESCE(sqlc.narg(first_name)::varchar, first_name),
+    last_name     = COALESCE(sqlc.narg(last_name)::varchar, last_name),
+    email         = COALESCE(sqlc.narg(email)::varchar, email),
+    phone         = COALESCE(sqlc.narg(phone)::varchar, phone),
+    hire_date     = COALESCE(sqlc.narg(hire_date)::date, hire_date),
+    is_active     = COALESCE(sqlc.narg(is_active)::boolean, is_active),
+    department_id = COALESCE(sqlc.narg(department_id)::integer, department_id),
+    role_id       = COALESCE(sqlc.narg(role_id)::integer, role_id),
+    updated_at    = now()
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+-- name: DeleteEmployee :execrows
+DELETE FROM employees
+WHERE id = sqlc.arg(id);

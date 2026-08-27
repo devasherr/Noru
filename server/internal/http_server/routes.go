@@ -17,4 +17,11 @@ func (s *Server) initRoutes() {
 
 		return c.JSON(fiber.Map{"status": "ok", "database": "up"})
 	})
+
+	employees := s.fiber.Group("/employees")
+
+	employees.Get("/", s.listEmployees)
+	employees.Post("/", s.createEmployee)
+	employees.Patch("/:id", s.updateEmployee)
+	employees.Delete("/:id", s.deleteEmployee)
 }

@@ -9,54 +9,54 @@ import (
 )
 
 type Attendance struct {
-	ID              int32
-	EmployeeShiftID int32
-	CheckIn         pgtype.Timestamptz
-	CheckOut        pgtype.Timestamptz
-	Status          string
-	CreatedAt       pgtype.Timestamptz
+	ID              int32              `json:"id"`
+	EmployeeShiftID int32              `json:"employee_shift_id"`
+	CheckIn         pgtype.Timestamptz `json:"check_in"`
+	CheckOut        pgtype.Timestamptz `json:"check_out"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type Department struct {
-	ID          int32
-	Name        string
-	Description pgtype.Text
-	CreatedAt   pgtype.Timestamptz
+	ID          int32              `json:"id"`
+	Name        string             `json:"name"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Employee struct {
-	ID           int32
-	FirstName    string
-	LastName     string
-	Email        pgtype.Text
-	Phone        pgtype.Text
-	HireDate     pgtype.Date
-	IsActive     bool
-	DepartmentID pgtype.Int4
-	RoleID       pgtype.Int4
-	CreatedAt    pgtype.Timestamptz
-	UpdatedAt    pgtype.Timestamptz
+	ID           int32              `json:"id"`
+	FirstName    string             `json:"first_name"`
+	LastName     string             `json:"last_name"`
+	Email        pgtype.Text        `json:"email"`
+	Phone        pgtype.Text        `json:"phone"`
+	HireDate     pgtype.Date        `json:"hire_date"`
+	IsActive     bool               `json:"is_active"`
+	DepartmentID pgtype.Int4        `json:"department_id"`
+	RoleID       pgtype.Int4        `json:"role_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type EmployeeShift struct {
-	ID         int32
-	EmployeeID int32
-	ShiftID    int32
-	WorkDate   pgtype.Date
-	CreatedAt  pgtype.Timestamptz
+	ID         int32              `json:"id"`
+	EmployeeID int32              `json:"employee_id"`
+	ShiftID    int32              `json:"shift_id"`
+	WorkDate   pgtype.Date        `json:"work_date"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type Role struct {
-	ID          int32
-	Title       string
-	Description pgtype.Text
-	CreatedAt   pgtype.Timestamptz
+	ID          int32              `json:"id"`
+	Title       string             `json:"title"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Shift struct {
-	ID        int32
-	Name      string
-	StartTime pgtype.Time
-	EndTime   pgtype.Time
-	CreatedAt pgtype.Timestamptz
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	StartTime pgtype.Time        `json:"start_time"`
+	EndTime   pgtype.Time        `json:"end_time"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
