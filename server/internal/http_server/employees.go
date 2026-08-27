@@ -39,6 +39,11 @@ type assignRolePayload struct {
 	RoleID *int32 `json:"role_id"`
 }
 
+type assignShiftPayload struct {
+	ShiftID  *int32  `json:"shift_id"`
+	WorkDate *string `json:"work_date"`
+}
+
 func (s *Server) listEmployees(c fiber.Ctx) error {
 	limit := fiber.Query(c, "limit", int32(defaultLimit))
 	offset := fiber.Query(c, "offset", int32(0))
@@ -81,7 +86,7 @@ func (s *Server) createEmployee(c fiber.Ctx) error {
 		return badRequest(c, "first_name and last_name are required")
 	}
 
-	hireDate, err := parseDate(body.HireDate)
+	hireDate, err := parseDate("hire_date", body.HireDate)
 	if err != nil {
 		return badRequest(c, err.Error())
 	}
@@ -112,7 +117,7 @@ func (s *Server) updateEmployee(c fiber.Ctx) error {
 		return badRequest(c, "invalid json body: "+err.Error())
 	}
 
-	hireDate, err := parseDate(body.HireDate)
+	hireDate, err := parseDate("hire_date", body.HireDate)
 	if err != nil {
 		return badRequest(c, err.Error())
 	}
@@ -194,6 +199,46 @@ func (s *Server) assignEmployeeRole(c fiber.Ctx) error {
 	return c.JSON(employee)
 }
 
+func (s *Server) assignEmployeeShift(c fiber.Ctx) error {
+	id, err := employeeID(c)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	var body assignShiftPayload
+	if err := c.Bind().JSON(&body); err != nil {
+		return badRequest(c, "invalid json body: "+err.Error())
+	}
+
+	if body.ShiftID == nil || *body.ShiftID < 1 {
+		return badRequest(c, "shift_id is required and must be a positive integer")
+	}
+
+	workDate, err := parseDate("work_date", body.WorkDate)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+	if !workDate.Valid {
+		return badRequest(c, "work_date is required and must be a YYYY-MM-DD date")
+	}
+
+	assignment, err := s.queries.AssignEmployeeShift(c.Context(), db.AssignEmployeeShiftParams{
+		EmployeeID: id,
+		ShiftID:    *body.ShiftID,
+		WorkDate:   workDate,
+	})
+	if err != nil {
+		return dbError(c, err)
+	}
+
+	// The day was free, so a new rota entry exists; otherwise it replaced one.
+	if assignment.Created {
+		return c.Status(fiber.StatusCreated).JSON(assignment)
+	}
+
+	return c.JSON(assignment)
+}
+
 func (s *Server) deleteEmployee(c fiber.Ctx) error {
 	id, err := employeeID(c)
 	if err != nil {
@@ -253,7 +298,7 @@ func nullInt4(v *int32) pgtype.Int4 {
 	return pgtype.Int4{Int32: *v, Valid: true}
 }
 
-func parseDate(v *string) (pgtype.Date, error) {
+func parseDate(field string, v *string) (pgtype.Date, error) {
 	s := trim(v)
 	if s == "" {
 		return pgtype.Date{}, nil
@@ -261,7 +306,7 @@ func parseDate(v *string) (pgtype.Date, error) {
 
 	t, err := time.Parse(time.DateOnly, s)
 	if err != nil {
-		return pgtype.Date{}, errors.New("hire_date must be a YYYY-MM-DD date")
+		return pgtype.Date{}, fmt.Errorf("%s must be a YYYY-MM-DD date", field)
 	}
 
 	return pgtype.Date{Time: t, Valid: true}, nil
@@ -291,6 +336,10 @@ func dbError(c fiber.Ctx, err error) error {
 				return errorJSON(c, fiber.StatusUnprocessableEntity, "department does not exist")
 			case "employees_role_id_fkey":
 				return errorJSON(c, fiber.StatusUnprocessableEntity, "role does not exist")
+			case "employee_shifts_employee_id_fkey":
+				return errorJSON(c, fiber.StatusNotFound, "employee not found")
+			case "employee_shifts_shift_id_fkey":
+				return errorJSON(c, fiber.StatusUnprocessableEntity, "shift does not exist")
 			}
 			return errorJSON(c, fiber.StatusUnprocessableEntity, "referenced record does not exist")
 		}

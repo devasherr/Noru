@@ -149,6 +149,69 @@ func (q *Queries) AssignEmployeeRole(ctx context.Context, arg AssignEmployeeRole
 	return i, err
 }
 
+const assignEmployeeShift = `-- name: AssignEmployeeShift :one
+WITH existing AS (
+    SELECT id
+    FROM employee_shifts
+    WHERE employee_shifts.employee_id = $1
+      AND employee_shifts.work_date = $2
+),
+assigned AS (
+    INSERT INTO employee_shifts (employee_id, shift_id, work_date)
+    VALUES ($1, $3, $2)
+    ON CONFLICT (employee_id, work_date) DO UPDATE
+        SET shift_id = EXCLUDED.shift_id
+    RETURNING id, employee_id, shift_id, work_date, created_at
+)
+SELECT
+    a.id,
+    a.employee_id,
+    a.shift_id,
+    s.name AS shift_name,
+    s.start_time::text AS start_time,
+    s.end_time::text   AS end_time,
+    a.work_date,
+    a.created_at,
+    NOT EXISTS (SELECT 1 FROM existing) AS created
+FROM assigned a
+JOIN shifts s ON s.id = a.shift_id
+`
+
+type AssignEmployeeShiftParams struct {
+	EmployeeID int32       `json:"employee_id"`
+	WorkDate   pgtype.Date `json:"work_date"`
+	ShiftID    int32       `json:"shift_id"`
+}
+
+type AssignEmployeeShiftRow struct {
+	ID         int32              `json:"id"`
+	EmployeeID int32              `json:"employee_id"`
+	ShiftID    int32              `json:"shift_id"`
+	ShiftName  string             `json:"shift_name"`
+	StartTime  string             `json:"start_time"`
+	EndTime    string             `json:"end_time"`
+	WorkDate   pgtype.Date        `json:"work_date"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Created    bool               `json:"created"`
+}
+
+func (q *Queries) AssignEmployeeShift(ctx context.Context, arg AssignEmployeeShiftParams) (AssignEmployeeShiftRow, error) {
+	row := q.db.QueryRow(ctx, assignEmployeeShift, arg.EmployeeID, arg.WorkDate, arg.ShiftID)
+	var i AssignEmployeeShiftRow
+	err := row.Scan(
+		&i.ID,
+		&i.EmployeeID,
+		&i.ShiftID,
+		&i.ShiftName,
+		&i.StartTime,
+		&i.EndTime,
+		&i.WorkDate,
+		&i.CreatedAt,
+		&i.Created,
+	)
+	return i, err
+}
+
 const createEmployee = `-- name: CreateEmployee :one
 INSERT INTO employees (
     first_name,

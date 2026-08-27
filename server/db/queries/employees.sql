@@ -111,3 +111,30 @@ SELECT
 FROM assigned a
 LEFT JOIN departments d ON d.id = a.department_id
 LEFT JOIN roles r ON r.id = a.role_id;
+
+-- name: AssignEmployeeShift :one
+WITH existing AS (
+    SELECT id
+    FROM employee_shifts
+    WHERE employee_shifts.employee_id = sqlc.arg(employee_id)
+      AND employee_shifts.work_date = sqlc.arg(work_date)
+),
+assigned AS (
+    INSERT INTO employee_shifts (employee_id, shift_id, work_date)
+    VALUES (sqlc.arg(employee_id), sqlc.arg(shift_id), sqlc.arg(work_date))
+    ON CONFLICT (employee_id, work_date) DO UPDATE
+        SET shift_id = EXCLUDED.shift_id
+    RETURNING *
+)
+SELECT
+    a.id,
+    a.employee_id,
+    a.shift_id,
+    s.name AS shift_name,
+    s.start_time::text AS start_time,
+    s.end_time::text   AS end_time,
+    a.work_date,
+    a.created_at,
+    NOT EXISTS (SELECT 1 FROM existing) AS created
+FROM assigned a
+JOIN shifts s ON s.id = a.shift_id;
