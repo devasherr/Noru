@@ -79,14 +79,12 @@ func (s *Server) createEmployee(c fiber.Ctx) error {
 	}
 
 	employee, err := s.queries.CreateEmployee(c.Context(), db.CreateEmployeeParams{
-		FirstName:    firstName,
-		LastName:     lastName,
-		Email:        nullText(body.Email),
-		Phone:        nullText(body.Phone),
-		HireDate:     hireDate,
-		IsActive:     nullBool(body.IsActive),
-		DepartmentID: nullInt4(body.DepartmentID),
-		RoleID:       nullInt4(body.RoleID),
+		FirstName: firstName,
+		LastName:  lastName,
+		Email:     nullText(body.Email),
+		Phone:     nullText(body.Phone),
+		HireDate:  hireDate,
+		IsActive:  nullBool(body.IsActive),
 	})
 	if err != nil {
 		return dbError(c, err)
