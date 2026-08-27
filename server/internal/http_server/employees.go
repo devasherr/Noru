@@ -31,6 +31,10 @@ type employeePayload struct {
 	RoleID       *int32  `json:"role_id"`
 }
 
+type assignDepartmentPayload struct {
+	DepartmentID *int32 `json:"department_id"`
+}
+
 func (s *Server) listEmployees(c fiber.Ctx) error {
 	limit := fiber.Query(c, "limit", int32(defaultLimit))
 	offset := fiber.Query(c, "offset", int32(0))
@@ -134,6 +138,32 @@ func (s *Server) updateEmployee(c fiber.Ctx) error {
 	return c.JSON(employee)
 }
 
+func (s *Server) assignEmployeeDepartment(c fiber.Ctx) error {
+	id, err := employeeID(c)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	var body assignDepartmentPayload
+	if err := c.Bind().JSON(&body); err != nil {
+		return badRequest(c, "invalid json body: "+err.Error())
+	}
+
+	if body.DepartmentID == nil || *body.DepartmentID < 1 {
+		return badRequest(c, "department_id is required and must be a positive integer")
+	}
+
+	employee, err := s.queries.AssignEmployeeDepartment(c.Context(), db.AssignEmployeeDepartmentParams{
+		ID:           id,
+		DepartmentID: nullInt4(body.DepartmentID),
+	})
+	if err != nil {
+		return dbError(c, err)
+	}
+
+	return c.JSON(employee)
+}
+
 func (s *Server) deleteEmployee(c fiber.Ctx) error {
 	id, err := employeeID(c)
 	if err != nil {
@@ -226,7 +256,13 @@ func dbError(c fiber.Ctx, err error) error {
 		case "23505": // unique_violation
 			return errorJSON(c, fiber.StatusConflict, "email is already taken")
 		case "23503": // foreign_key_violation
-			return errorJSON(c, fiber.StatusUnprocessableEntity, "department_id or role_id does not exist")
+			switch pgErr.ConstraintName {
+			case "employees_department_id_fkey":
+				return errorJSON(c, fiber.StatusUnprocessableEntity, "department does not exist")
+			case "employees_role_id_fkey":
+				return errorJSON(c, fiber.StatusUnprocessableEntity, "role does not exist")
+			}
+			return errorJSON(c, fiber.StatusUnprocessableEntity, "referenced record does not exist")
 		}
 	}
 

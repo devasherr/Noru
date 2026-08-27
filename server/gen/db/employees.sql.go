@@ -11,6 +11,75 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignEmployeeDepartment = `-- name: AssignEmployeeDepartment :one
+WITH assigned AS (
+    UPDATE employees
+    SET department_id = $1,
+        updated_at    = now()
+    WHERE employees.id = $2
+    RETURNING id, first_name, last_name, email, phone, hire_date, is_active, department_id, role_id, created_at, updated_at
+)
+SELECT
+    a.id,
+    a.first_name,
+    a.last_name,
+    a.email,
+    a.phone,
+    a.hire_date,
+    a.is_active,
+    d.id   AS department_id,
+    d.name AS department_name,
+    r.id   AS role_id,
+    r.title AS role_title,
+    a.created_at,
+    a.updated_at
+FROM assigned a
+LEFT JOIN departments d ON d.id = a.department_id
+LEFT JOIN roles r ON r.id = a.role_id
+`
+
+type AssignEmployeeDepartmentParams struct {
+	DepartmentID pgtype.Int4 `json:"department_id"`
+	ID           int32       `json:"id"`
+}
+
+type AssignEmployeeDepartmentRow struct {
+	ID             int32              `json:"id"`
+	FirstName      string             `json:"first_name"`
+	LastName       string             `json:"last_name"`
+	Email          pgtype.Text        `json:"email"`
+	Phone          pgtype.Text        `json:"phone"`
+	HireDate       pgtype.Date        `json:"hire_date"`
+	IsActive       bool               `json:"is_active"`
+	DepartmentID   pgtype.Int4        `json:"department_id"`
+	DepartmentName pgtype.Text        `json:"department_name"`
+	RoleID         pgtype.Int4        `json:"role_id"`
+	RoleTitle      pgtype.Text        `json:"role_title"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) AssignEmployeeDepartment(ctx context.Context, arg AssignEmployeeDepartmentParams) (AssignEmployeeDepartmentRow, error) {
+	row := q.db.QueryRow(ctx, assignEmployeeDepartment, arg.DepartmentID, arg.ID)
+	var i AssignEmployeeDepartmentRow
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Email,
+		&i.Phone,
+		&i.HireDate,
+		&i.IsActive,
+		&i.DepartmentID,
+		&i.DepartmentName,
+		&i.RoleID,
+		&i.RoleTitle,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createEmployee = `-- name: CreateEmployee :one
 INSERT INTO employees (
     first_name,

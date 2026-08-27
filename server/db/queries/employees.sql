@@ -59,3 +59,29 @@ RETURNING *;
 -- name: DeleteEmployee :execrows
 DELETE FROM employees
 WHERE id = sqlc.arg(id);
+
+-- name: AssignEmployeeDepartment :one
+WITH assigned AS (
+    UPDATE employees
+    SET department_id = sqlc.arg(department_id),
+        updated_at    = now()
+    WHERE employees.id = sqlc.arg(id)
+    RETURNING *
+)
+SELECT
+    a.id,
+    a.first_name,
+    a.last_name,
+    a.email,
+    a.phone,
+    a.hire_date,
+    a.is_active,
+    d.id   AS department_id,
+    d.name AS department_name,
+    r.id   AS role_id,
+    r.title AS role_title,
+    a.created_at,
+    a.updated_at
+FROM assigned a
+LEFT JOIN departments d ON d.id = a.department_id
+LEFT JOIN roles r ON r.id = a.role_id;
