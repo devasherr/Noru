@@ -1,0 +1,91 @@
+.error {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 22px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+  border-radius: 50%;
+}
+
+.body {
+  min-width: 0;
+}
+
+.title {
+  font-size: 14.5px;
+}
+
+.text {
+  margin-top: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hint {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-subtle);
+}
+
+.hint code {
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  background: var(--panel-hover);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.primaryButton,
+.ghostButton {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.primaryButton {
+  color: var(--accent-on);
+  background: var(--accent);
+}
+
+.primaryButton:hover {
+  background: var(--accent-hover);
+}
+
+.ghostButton {
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.ghostButton:hover {
+  color: var(--text);
+  background: var(--panel-hover);
+  border-color: var(--border-strong);
+}

@@ -30,6 +30,12 @@ export type EmployeeListResponse = {
   offset: number
 }
 
+/**
+ * Shared empty roster. Pages fall back to this rather than a fresh `[]` so the
+ * reference stays stable and downstream `useMemo`s don't rerun every render.
+ */
+export const NO_EMPLOYEES: Employee[] = []
+
 export function fullName(employee: Employee): string {
   return `${employee.first_name} ${employee.last_name}`.trim()
 }

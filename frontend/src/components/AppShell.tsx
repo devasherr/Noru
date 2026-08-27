@@ -1,7 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { Navbar } from './Navbar.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import styles from './AppShell.module.css'
+
+const MOBILE = '(max-width: 900px)'
 
 /**
  * Owns the one piece of chrome state the navbar and sidebar share.
@@ -13,16 +15,18 @@ import styles from './AppShell.module.css'
  * closed drawer on mobile.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      window.matchMedia('(max-width: 900px)').matches,
-  )
+  const [collapsed, setCollapsed] = useState(isMobile)
+
+  // Following a link on mobile should close the drawer behind you. On desktop
+  // the rail is persistent, so leave it alone.
+  const handleNavigate = useCallback(() => {
+    if (isMobile()) setCollapsed(true)
+  }, [])
 
   return (
     <div className={styles.shell} data-collapsed={collapsed}>
       <Navbar onToggleSidebar={() => setCollapsed((value) => !value)} />
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} onNavigate={handleNavigate} />
       <button
         type="button"
         className={styles.scrim}
@@ -35,4 +39,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
     </div>
   )
+}
+
+function isMobile(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE).matches
 }

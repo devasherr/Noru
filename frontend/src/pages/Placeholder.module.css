@@ -1,0 +1,20 @@
+.panel {
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.text {
+  max-width: 380px;
+  margin: 6px auto 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
