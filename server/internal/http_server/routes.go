@@ -24,5 +24,6 @@ func (s *Server) initRoutes() {
 	employees.Post("/", s.createEmployee)
 	employees.Patch("/:id", s.updateEmployee)
 	employees.Put("/:id/department", s.assignEmployeeDepartment)
+	employees.Put("/:id/role", s.assignEmployeeRole)
 	employees.Delete("/:id", s.deleteEmployee)
 }

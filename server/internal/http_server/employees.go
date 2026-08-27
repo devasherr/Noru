@@ -35,6 +35,10 @@ type assignDepartmentPayload struct {
 	DepartmentID *int32 `json:"department_id"`
 }
 
+type assignRolePayload struct {
+	RoleID *int32 `json:"role_id"`
+}
+
 func (s *Server) listEmployees(c fiber.Ctx) error {
 	limit := fiber.Query(c, "limit", int32(defaultLimit))
 	offset := fiber.Query(c, "offset", int32(0))
@@ -156,6 +160,32 @@ func (s *Server) assignEmployeeDepartment(c fiber.Ctx) error {
 	employee, err := s.queries.AssignEmployeeDepartment(c.Context(), db.AssignEmployeeDepartmentParams{
 		ID:           id,
 		DepartmentID: nullInt4(body.DepartmentID),
+	})
+	if err != nil {
+		return dbError(c, err)
+	}
+
+	return c.JSON(employee)
+}
+
+func (s *Server) assignEmployeeRole(c fiber.Ctx) error {
+	id, err := employeeID(c)
+	if err != nil {
+		return badRequest(c, err.Error())
+	}
+
+	var body assignRolePayload
+	if err := c.Bind().JSON(&body); err != nil {
+		return badRequest(c, "invalid json body: "+err.Error())
+	}
+
+	if body.RoleID == nil || *body.RoleID < 1 {
+		return badRequest(c, "role_id is required and must be a positive integer")
+	}
+
+	employee, err := s.queries.AssignEmployeeRole(c.Context(), db.AssignEmployeeRoleParams{
+		ID:     id,
+		RoleID: nullInt4(body.RoleID),
 	})
 	if err != nil {
 		return dbError(c, err)
