@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS attendance;
+DROP TABLE IF EXISTS employee_shifts;
+DROP TABLE IF EXISTS shifts;
+DROP TABLE IF EXISTS employees;
+DROP TABLE IF EXISTS roles;
+DROP TABLE IF EXISTS departments;
